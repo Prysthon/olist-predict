@@ -1,0 +1,30 @@
+{
+  "name": "olist-predict",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "remoteUser": "vscode",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "containerEnv": {
+    "JAVA_HOME": "/usr/lib/jvm/java-17-openjdk",
+    "PYSPARK_PYTHON": "${containerWorkspaceFolder}/.venv/bin/python",
+    "PYSPARK_DRIVER_PYTHON": "${containerWorkspaceFolder}/.venv/bin/python",
+    "UV_LINK_MODE": "copy"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-toolsai.jupyter"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "${containerWorkspaceFolder}/.venv/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "jupyter.notebookFileRoot": "${workspaceFolder}/notebooks"
+      }
+    }
+  },
+  "postCreateCommand": "uv sync --dev"
+}
