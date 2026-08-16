@@ -10,6 +10,7 @@ dependencies = [
     "numpy",
     "pandas",
     "pandera>=0.32.1",
+    "pyspark>=4.0.0",
     "ydata-profiling>=4.18.4",
 ]
 
