@@ -1,0 +1,220 @@
+# %%
+from pathlib import Path
+
+from loguru import logger
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as F
+
+
+# %%
+spark = (
+    SparkSession.builder
+    .appName("olist-feature-engineering")
+    .getOrCreate()
+)
+
+
+# %%
+DATE_COLUMNS = [
+    "order_purchase_timestamp",
+    "order_approved_at",
+    "order_delivered_customer_date",
+    "order_estimated_delivery_date",
+]
+
+
+def load_data(
+    orders_path: Path,
+    items_path: Path,
+    customers_path: Path,
+    spark: SparkSession = spark,
+) -> tuple[DataFrame, DataFrame, DataFrame]:
+    """
+    Carrega os dados de pedidos, itens e clientes a partir de arquivos CSV.
+
+    Args:
+        orders_path: caminho para o arquivo CSV contendo os pedidos.
+        items_path: caminho para o arquivo CSV contendo os itens dos pedidos.
+        customers_path: caminho para o arquivo CSV contendo os clientes.
+        spark: sessão Spark utilizada para leitura dos dados.
+
+    Returns:
+        orders: DataFrame contendo os pedidos.
+        items: DataFrame contendo os itens dos pedidos.
+        customers: DataFrame contendo os clientes.
+    """
+    logger.info("Carregando os dados...")
+
+    orders = spark.read.csv(
+        str(orders_path),
+        header=True,
+        inferSchema=True,
+    )
+
+    items = spark.read.csv(
+        str(items_path),
+        header=True,
+        inferSchema=True,
+    )
+
+    customers = spark.read.csv(
+        str(customers_path),
+        header=True,
+        inferSchema=True,
+    )
+
+    for column in DATE_COLUMNS:
+        orders = orders.withColumn(
+            column,
+            F.to_timestamp(F.col(column)),
+        )
+
+    logger.success("Dados carregados com sucesso.")
+
+    return orders, items, customers
+
+# %%
+def save_dataset(
+    dataset: DataFrame,
+    output_path: Path,
+) -> None:
+    """
+    Salva um DataFrame Spark em formato Parquet.
+
+    Args:
+        dataset: DataFrame a ser salvo.
+        output_path: caminho onde o dataset será salvo.
+    """
+
+    dataset.write.parquet(
+        str(output_path),
+        mode="overwrite",
+    )
+
+    logger.success(f"Dataset salvos com sucesso, na pasta: {output_path}.")
+
+# %%
+def create_target(orders: DataFrame) -> DataFrame:
+    """
+    Filtra pedidos válidos para análise e cria a variável alvo is_late.
+
+    Args:
+        orders: DataFrame contendo os pedidos.
+
+    Returns:
+        DataFrame com pedidos entregues e a variável alvo is_late.
+    """
+    original_count = orders.count()
+
+    orders = (
+        orders
+        .filter(
+            (F.col("order_status") == "delivered")
+            & F.col("order_delivered_customer_date").isNotNull()
+            & F.col("order_estimated_delivery_date").isNotNull()
+            & F.col("order_approved_at").isNotNull()
+        )
+        .withColumn(
+            "is_late",
+            F.when(
+                F.col("order_delivered_customer_date")
+                > F.col("order_estimated_delivery_date"),
+                1,
+            ).otherwise(0),
+        )
+    )
+
+    historical_count = orders.count()
+
+    logger.info(
+        f"Pedidos originais: {original_count:,} | "
+        f"Pedidos no recorte histórico: {historical_count:,}"
+    )
+
+    target_distribution = (
+        orders
+        .groupBy("is_late")
+        .count()
+        .orderBy("is_late")
+        .collect()
+    )
+
+    logger.info(
+        "Distribuição do target: {}",
+        {row["is_late"]: row["count"] for row in target_distribution},
+    )
+
+    return orders
+
+
+# %%
+def aggregate_items(items: DataFrame) -> DataFrame:
+    """
+    Agrega os itens no nível do pedido.
+
+    Args:
+        items: DataFrame contendo os itens dos pedidos.
+
+    Returns:
+        DataFrame com uma linha por pedido e métricas agregadas dos itens.
+    """
+    items_agg = (
+        items
+        .groupBy("order_id")
+        .agg(
+            F.count("order_item_id").alias("item_count"),
+            F.countDistinct("seller_id").alias("seller_count"),
+            F.sum("price").alias("total_price"),
+            F.sum("freight_value").alias("total_freight"),
+        )
+    )
+
+    logger.info(
+        f"Itens originais: {items.count():,} | "
+        f"Pedidos após agregação: {items_agg.count():,}"
+    )
+
+    return items_agg
+
+
+# %%
+def create_dataset(
+    orders: DataFrame,
+    items: DataFrame,
+    customers: DataFrame,
+) -> DataFrame:
+
+    orders = create_target(orders)
+    items_agg = aggregate_items(items)
+
+    data = orders.join(
+        items_agg,
+        on="order_id",
+        how="left",
+    )
+
+    data = data.join(
+        customers.select(
+            "customer_id",
+            "customer_city",
+            "customer_state",
+        ),
+        on="customer_id",
+        how="left",
+    )
+
+    return data
+# %%
+DATA_DIR = Path("../data/bronze")
+
+orders, items, customers = load_data(
+    orders_path=DATA_DIR / "olist_orders_dataset.csv",
+    items_path=DATA_DIR / "olist_order_items_dataset.csv",
+    customers_path=DATA_DIR / "olist_customers_dataset.csv",
+)
+
+
+# %%
+orders.printSchema()
+
+# %%
