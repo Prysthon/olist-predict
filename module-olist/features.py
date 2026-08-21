@@ -3,7 +3,9 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
 
-def create_features(data: DataFrame) -> DataFrame:
+def create_features(
+    data: DataFrame,
+) -> DataFrame:
     """
     Cria as features mínimas definidas no EDA.
 
@@ -11,12 +13,13 @@ def create_features(data: DataFrame) -> DataFrame:
     do pagamento.
 
     Args:
-        orders: DataFrame contendo os pedidos.
+        data: DataFrame contendo os dados dos pedidos.
 
     Returns:
         DataFrame com as features de prazo e momento da compra.
     """
-    orders = (
+
+    data = (
         data
         .withColumn(
             "promised_days",
@@ -47,4 +50,4 @@ def create_features(data: DataFrame) -> DataFrame:
         "purchase_weekday e purchase_hour."
     )
 
-    return orders
+    return data

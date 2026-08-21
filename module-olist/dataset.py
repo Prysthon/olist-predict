@@ -1,4 +1,3 @@
-# %%
 from pathlib import Path
 
 from loguru import logger
@@ -6,28 +5,11 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
 
-# %%
-spark = (
-    SparkSession.builder
-    .appName("olist-feature-engineering")
-    .getOrCreate()
-)
-
-
-# %%
-DATE_COLUMNS = [
-    "order_purchase_timestamp",
-    "order_approved_at",
-    "order_delivered_customer_date",
-    "order_estimated_delivery_date",
-]
-
-
 def load_data(
     orders_path: Path,
     items_path: Path,
     customers_path: Path,
-    spark: SparkSession = spark,
+    spark: SparkSession,
 ) -> tuple[DataFrame, DataFrame, DataFrame]:
     """
     Carrega os dados de pedidos, itens e clientes a partir de arquivos CSV.
@@ -43,6 +25,7 @@ def load_data(
         items: DataFrame contendo os itens dos pedidos.
         customers: DataFrame contendo os clientes.
     """
+
     logger.info("Carregando os dados...")
 
     orders = spark.read.csv(
@@ -63,17 +46,11 @@ def load_data(
         inferSchema=True,
     )
 
-    for column in DATE_COLUMNS:
-        orders = orders.withColumn(
-            column,
-            F.to_timestamp(F.col(column)),
-        )
-
     logger.success("Dados carregados com sucesso.")
 
     return orders, items, customers
 
-# %%
+
 def save_dataset(
     dataset: DataFrame,
     output_path: Path,
@@ -91,10 +68,14 @@ def save_dataset(
         mode="overwrite",
     )
 
-    logger.success(f"Dataset salvos com sucesso, na pasta: {output_path}.")
+    logger.success(
+        f"Dataset salvo com sucesso, na pasta: {output_path}."
+    )
 
-# %%
-def create_target(orders: DataFrame) -> DataFrame:
+
+def create_target(
+    orders: DataFrame,
+) -> DataFrame:
     """
     Filtra pedidos válidos para análise e cria a variável alvo is_late.
 
@@ -104,6 +85,7 @@ def create_target(orders: DataFrame) -> DataFrame:
     Returns:
         DataFrame com pedidos entregues e a variável alvo is_late.
     """
+
     original_count = orders.count()
 
     orders = (
@@ -141,14 +123,18 @@ def create_target(orders: DataFrame) -> DataFrame:
 
     logger.info(
         "Distribuição do target: {}",
-        {row["is_late"]: row["count"] for row in target_distribution},
+        {
+            row["is_late"]: row["count"]
+            for row in target_distribution
+        },
     )
 
     return orders
 
 
-# %%
-def aggregate_items(items: DataFrame) -> DataFrame:
+def aggregate_items(
+    items: DataFrame,
+) -> DataFrame:
     """
     Agrega os itens no nível do pedido.
 
@@ -158,6 +144,7 @@ def aggregate_items(items: DataFrame) -> DataFrame:
     Returns:
         DataFrame com uma linha por pedido e métricas agregadas dos itens.
     """
+
     items_agg = (
         items
         .groupBy("order_id")
@@ -177,14 +164,25 @@ def aggregate_items(items: DataFrame) -> DataFrame:
     return items_agg
 
 
-# %%
 def create_dataset(
     orders: DataFrame,
     items: DataFrame,
     customers: DataFrame,
 ) -> DataFrame:
+    """
+    Cria o dataset consolidado no nível do pedido.
+
+    Args:
+        orders: DataFrame contendo os pedidos.
+        items: DataFrame contendo os itens dos pedidos.
+        customers: DataFrame contendo os clientes.
+
+    Returns:
+        DataFrame consolidado no nível do pedido.
+    """
 
     orders = create_target(orders)
+
     items_agg = aggregate_items(items)
 
     data = orders.join(
@@ -204,17 +202,3 @@ def create_dataset(
     )
 
     return data
-# %%
-DATA_DIR = Path("../data/bronze")
-
-orders, items, customers = load_data(
-    orders_path=DATA_DIR / "olist_orders_dataset.csv",
-    items_path=DATA_DIR / "olist_order_items_dataset.csv",
-    customers_path=DATA_DIR / "olist_customers_dataset.csv",
-)
-
-
-# %%
-orders.printSchema()
-
-# %%
