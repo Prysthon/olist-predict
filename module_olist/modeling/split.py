@@ -40,19 +40,9 @@ def split_data(
 
     dataset = data.select(*FEATURES, TARGET)
 
-    classes = (
-        dataset
-        .select(TARGET)
-        .distinct()
-        .rdd
-        .flatMap(lambda row: row)
-        .collect()
-    )
-
-    fractions = {
-        target_class: train_size
-        for target_class in classes
-    }
+    # Divisão estratificada simplificada sem collect()
+    # Para um dataset binário (0, 1) não precisa descobrir as classes dinamicamente
+    fractions = {0: train_size, 1: train_size}
 
     train = dataset.sampleBy(
         col=TARGET,

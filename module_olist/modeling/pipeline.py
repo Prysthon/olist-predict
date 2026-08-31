@@ -9,7 +9,6 @@ from pyspark.ml.feature import (
 from pyspark.ml.classification import GBTClassifier
 
 from xgboost.spark import SparkXGBClassifier
-
 from synapse.ml.lightgbm import LightGBMClassifier
 
 
@@ -73,7 +72,7 @@ def create_gradient_boosting_pipeline():
     preprocessing = create_preprocessing_stages()
 
     model = GBTClassifier(
-        labelCol="label",
+        labelCol="is_late",
         featuresCol="features",
         maxIter=100,
         stepSize=0.1,
@@ -91,7 +90,7 @@ def create_xgboost_pipeline():
 
     model = SparkXGBClassifier(
         features_col="features",
-        label_col="label",
+        label_col="is_late",
         n_estimators=200,
         learning_rate=0.05,
         max_depth=5,
@@ -109,7 +108,7 @@ def create_lightgbm_pipeline():
     preprocessing = create_preprocessing_stages()
 
     model = LightGBMClassifier(
-        labelCol="label",
+        labelCol="is_late",
         featuresCol="features",
         objective="binary",
         numIterations=200,
