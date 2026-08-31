@@ -63,9 +63,8 @@ def save_dataset(
         output_path: caminho onde o dataset será salvo.
     """
 
-    dataset.write.parquet(
+    dataset.write.mode("overwrite").parquet(
         str(output_path),
-        mode="overwrite",
     )
 
     logger.success(
@@ -86,8 +85,6 @@ def create_target(
         DataFrame com pedidos entregues e a variável alvo is_late.
     """
 
-    original_count = orders.count()
-
     orders = (
         orders
         .filter(
@@ -106,28 +103,7 @@ def create_target(
         )
     )
 
-    historical_count = orders.count()
-
-    logger.info(
-        f"Pedidos originais: {original_count:,} | "
-        f"Pedidos no recorte histórico: {historical_count:,}"
-    )
-
-    target_distribution = (
-        orders
-        .groupBy("is_late")
-        .count()
-        .orderBy("is_late")
-        .collect()
-    )
-
-    logger.info(
-        "Distribuição do target: {}",
-        {
-            row["is_late"]: row["count"]
-            for row in target_distribution
-        },
-    )
+    logger.info("Target 'is_late' criado com filtros aplicados.")
 
     return orders
 
@@ -156,10 +132,7 @@ def aggregate_items(
         )
     )
 
-    logger.info(
-        f"Itens originais: {items.count():,} | "
-        f"Pedidos após agregação: {items_agg.count():,}"
-    )
+    logger.info("Itens agregados por pedido.")
 
     return items_agg
 
