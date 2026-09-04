@@ -1,44 +1,78 @@
-import gc
 from pathlib import Path
 
 from loguru import logger
+
 from pyspark.sql import DataFrame
 
 from module_olist.modeling.pipeline import (
     create_gradient_boosting_pipeline,
-    create_lightgbm_pipeline,
     create_xgboost_pipeline,
 )
 
 
-def train_models(train_df: DataFrame):
+def train_model(
+    model_name: str,
+    train_df: DataFrame,
+):
+    """
+    Treina o modelo selecionado
+    usando todo o conjunto de treino.
+
+    Salva somente o modelo vencedor.
+    """
 
     pipelines = {
-        "Gradient Boosting": create_gradient_boosting_pipeline(),
-        "XGBoost": create_xgboost_pipeline(),
-        # LightGBM: SynapseML 1.1.3 é incompatível com PySpark 4.0.0
-        # Requer downgrade para PySpark 3.5.x ou aguardar SynapseML atualizado
-        # "LightGBM": create_lightgbm_pipeline(),
+        "Gradient Boosting": (
+            create_gradient_boosting_pipeline()
+        ),
+        "XGBoost": (
+            create_xgboost_pipeline()
+        ),
     }
 
-    trained_models = {}
-    models_dir = Path("models")
+    if model_name not in pipelines:
+        raise ValueError(
+            f"Modelo não encontrado: "
+            f"{model_name}"
+        )
 
-    # Treina um modelo por vez para economizar memória
-    for name, pipeline in pipelines.items():
-        logger.info(f"Treinando modelo: {name}")
+    logger.info(
+        f"Treinando modelo final: "
+        f"{model_name}"
+    )
 
-        fitted_model = pipeline.fit(train_df)
-        trained_models[name] = fitted_model
+    pipeline = pipelines[
+        model_name
+    ]
 
-        # Salva o modelo em disco
-        model_path = models_dir / name.lower().replace(" ", "_")
-        fitted_model.write().overwrite().save(str(model_path))
-        logger.info(f"Modelo salvo em: {model_path}")
+    model = pipeline.fit(
+        train_df
+    )
 
-        # Força garbage collection entre modelos
-        gc.collect()
+    models_dir = Path(
+        "models"
+    )
 
-        logger.success(f"Modelo {name} treinado com sucesso.")
+    model_path = (
+        models_dir
+        / model_name.lower().replace(
+            " ",
+            "_",
+        )
+    )
 
-    return trained_models
+    model.write().overwrite().save(
+        str(model_path)
+    )
+
+    logger.info(
+        f"Modelo salvo em: "
+        f"{model_path}"
+    )
+
+    logger.success(
+        f"Modelo {model_name} "
+        f"treinado com sucesso."
+    )
+
+    return model
