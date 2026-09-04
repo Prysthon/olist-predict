@@ -35,36 +35,6 @@ from module_olist.modeling.evaluate import (
 
 
 def main() -> None:
-    """
-    Executa o pipeline de preparação
-    e modelagem dos dados.
-
-    O pipeline realiza:
-
-        1. Carregamento dos dados.
-
-        2. Criação do dataset.
-
-        3. Criação das features.
-
-        4. Salvamento na camada silver.
-
-        5. Divisão em treino e teste.
-
-        6. Cross Validation
-           no conjunto de treino.
-
-        7. Seleção do melhor modelo
-           e threshold.
-
-        8. Treinamento do modelo
-           vencedor no treino inteiro.
-
-        9. Salvamento do modelo final.
-
-        10. Avaliação final no teste.
-    """
-
     logger.info(
         "Iniciando pipeline de dados..."
     )
@@ -218,6 +188,7 @@ def main() -> None:
         best_model = train_model(
             model_name=best_model_name,
             train_df=train_df,
+            threshold=best_threshold,
         )
 
         logger.info(
