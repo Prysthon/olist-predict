@@ -638,3 +638,16 @@ spark = (
 ## 👥 Autores
 
 Projeto desenvolvido como parte da disciplina de Machine Learning.
+
+## Active learning (atividade didática)
+
+O notebook [`notebooks/03-active-learning.ipynb`](notebooks/03-active-learning.ipynb) demonstra uma rodada de amostragem por incerteza com regressão logística e dados sintéticos. Compara a acurácia no mesmo teste fixo antes e depois da anotação simulada, sem garantia de melhora. É uma demonstração independente do pipeline PySpark e dos resultados Olist.
+
+Para executar no VS Code com a extensão Jupyter, prepare um ambiente separado:
+
+```bash
+uv venv /tmp/olist-active-learning --python 3.13
+uv pip install --python /tmp/olist-active-learning/bin/python scikit-learn ipykernel
+```
+
+Abra o notebook, selecione `/tmp/olist-active-learning/bin/python` em **Select Kernel → Python Environments** e execute **Run All**. Se scikit-learn e ipykernel já estiverem disponíveis, use esse ambiente. Não é necessário baixar o dataset Olist nem executar seu treinamento.
